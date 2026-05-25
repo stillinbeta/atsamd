@@ -7,6 +7,7 @@
 // use panic_semihosting as _;
 
 use bsp::{hal, pac};
+use embassy_time::{Duration, Timer};
 use hal::{
     clock::v2::{clock_system_at_reset, osculp32k::OscUlp32k, pclk::Pclk, rtcosc::RtcOsc},
     eic,
@@ -72,6 +73,8 @@ async fn main(_s: embassy_executor::Spawner) {
     let (eicclk, _gclk) = Pclk::enable(tokens.pclks.eic, gclk);
 
     let eic = hal::eic::Eic::new(&mut mclk, &(eicclk.into()), peripherals.eic).split();
+
+    defmt::println!("trying to init wifi");
     let mut nina = pyportal::wifi(
         spi,
         SercomIrq,
@@ -82,8 +85,10 @@ async fn main(_s: embassy_executor::Spawner) {
         pins.esp_reset,
         pins.esp_gpio0,
     )
-    .await
-    .expect("couldn't enable pyportal");
+        .await
+        .expect("couldn't enable pyportal");
+
+    defmt::println!("wifi awake");
 
     let mut version = [0_u8; 32];
 
