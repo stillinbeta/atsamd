@@ -45,6 +45,6 @@ async fn main(_s: embassy_executor::Spawner) {
 
     loop {
         red_led.toggle().unwrap();
-        Timer::after_secs(1).await;
+        Timer::after_millis(150).await;
     }
 }

@@ -1,7 +1,7 @@
 # vim:ft=toml:
 [target.thumbv7em-none-eabihf]
-runner = "hf2 elf"
-# runner = 'probe-rs run --chip ATSAMD51J20A'
+# runner = "hf2 elf"
+runner = 'probe-rs run --chip ATSAMD51J20A --speed=2000'
 
 [build]
 target = "thumbv7em-none-eabihf"
@@ -12,4 +12,7 @@ rustflags = [
    "-C", "link-arg=--nmagic",
 
    "-C", "link-arg=-Tlink.x",
+
+  # --- ADD following new flag ---
+  "-C", "link-arg=-Tdefmt.x",
 ]

@@ -8,10 +8,13 @@ pub use hal::pac;
 pub use cortex_m_rt::entry;
 
 use hal::clock::GenericClockController;
-use hal::sercom::uart;
-use hal::sercom::uart::BaudMode;
-use hal::sercom::uart::Oversampling;
-use hal::sercom::{i2c, spi};
+use hal::eic;
+use hal::sercom::{
+    i2c,
+    spi::{self, Duplex},
+    uart::{self, BaudMode, Oversampling},
+    Sercom2,
+};
 use hal::time::Hertz;
 
 pub mod pins;
@@ -61,9 +64,46 @@ pub fn spi_master(
         .enable()
 }
 
+#[cfg(feature = "wifi")]
+pub async fn wifi<SI, BI>(
+    spi: Spi,
+    spi_interrupt: SI,
+    ch: hal::eic::Channel<hal::eic::Ch0>,
+    cs: impl Into<EspCs>,
+    busy: impl Into<EspBusy>,
+    busy_interrupt: BI,
+    reset: impl Into<EspReset>,
+    gpio: impl Into<EspGpio>,
+) -> Result<
+    embassy_nina::Nina<
+        spi::SpiFuture<spi::Config<SpiPads>, Duplex>,
+        EspCs,
+        eic::ExtInt<EspBusy, hal::eic::Ch0, eic::EicFuture>,
+        EspReset,
+        EspGpio,
+    >,
+    embassy_nina::Error<spi::Error>,
+>
+where
+    SI: hal::async_hal::interrupts::Binding<
+        hal::async_hal::interrupts::SERCOM2,
+        spi::InterruptHandler<Sercom2>,
+    >,
+    BI: hal::async_hal::interrupts::Binding<
+        hal::async_hal::interrupts::EIC_EXTINT_0,
+        eic::InterruptHandler,
+    >,
+{
+    let spi = spi.into_future(spi_interrupt);
+    let busy2 = ch.with_pin(busy.into()).into_future(busy_interrupt);
+    let mut nina = embassy_nina::Nina::new(spi, cs.into(), busy2, reset.into(), gpio.into());
+    nina.init().await?;
+    Ok(nina)
+}
+
 /// I2C pads for the labelled I2C peripheral
 ///
-/// You can use these pads with other, user-defined [`i2c::Config`]urations.
+/// You can use these pads with other, user-defined Durations.
 pub type I2cPads = i2c::Pads<I2cSercom, Sda, Scl>;
 
 /// I2C master for the labelled I2C peripheral
