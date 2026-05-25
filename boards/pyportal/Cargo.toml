@@ -52,7 +52,6 @@ defmt-rtt = "1.2"
 defmt = "1.1"
 panic-probe = "1.0"
 
-
 [dev-dependencies.embassy-executor]
 version = "0.10"
 features = ["platform-cortex-m", "executor-thread"]
@@ -78,6 +77,7 @@ use_semihosting = []
 rtic = ["atsamd-hal/rtic"]
 embassy-time = ["atsamd-hal/embassy-time"]
 wifi = ["atsamd-hal/async", "embassy-nina"]
+defmt = [] # add defmt codegen link
 
 # for cargo flash
 [package.metadata]
@@ -103,4 +103,4 @@ required-features = ["embassy-time"]
 
 [[example]]
 name = "embassy_wifi"
-required-features = ["wifi", "embassy-time"]
+required-features = ["wifi", "embassy-time", "defmt"]
