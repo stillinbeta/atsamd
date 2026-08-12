@@ -104,11 +104,14 @@ impl Driver for EmbassyBackend {
             let rtc = unsafe { Rtc::steal() };
             let mut queue = self.queue.borrow(cs).borrow_mut();
             if queue.schedule_wake(at, waker) {
+                // loop until we've set an alarm, in case "next" was in the past
                 loop {
                     let next = queue.next_expiration(self.now());
 
                     // We can only handle one alarm at a time right now
-                    self.set_alarm(&cs, next, &rtc);
+                    if self.set_alarm(&cs, next, &rtc) {
+                        break
+                    }
                 }
             }
         });
