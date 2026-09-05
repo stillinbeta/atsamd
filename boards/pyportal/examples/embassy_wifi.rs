@@ -6,13 +6,17 @@
 // #[cfg(feature = "use_semihosting")]
 // use panic_semihosting as _;
 
-use bsp::{hal, pac};
+use atsamd_hal::ehal::digital::OutputPin;
+use bsp::{hal, pac, pin_alias};
 use embassy_time::{Duration, Timer};
 use hal::{
     clock::v2::{clock_system_at_reset, osculp32k::OscUlp32k, pclk::Pclk, rtcosc::RtcOsc},
+    ehal::digital::StatefulOutputPin,
     eic,
     sercom::{spi, Sercom2},
     time::Hertz,
+    embedded_io_async::{Write, Read},
+    ehal_async::digital::Wait,
 };
 use pyportal as bsp;
 
@@ -28,6 +32,18 @@ hal::bind_interrupts!(struct EicIrq {
 
 use {defmt_rtt as _, panic_probe as _};
 
+async fn warm_up(red_led: &mut bsp::RedLed) {
+    for _ in 0..4 {
+        Timer::after(Duration::from_millis(1000)).await;
+        red_led.toggle().unwrap();
+    }
+
+    for _ in 0..4 {
+        Timer::after(Duration::from_millis(200)).await;
+        red_led.toggle().unwrap();
+    }
+}
+
 #[embassy_executor::main]
 async fn main(_s: embassy_executor::Spawner) {
     defmt::println!("Hello world!");
@@ -35,6 +51,7 @@ async fn main(_s: embassy_executor::Spawner) {
     let mut peripherals = pac::Peripherals::take().unwrap();
     let _core = pac::CorePeripherals::take().unwrap();
     let pins = bsp::Pins::new(peripherals.port);
+    let mut red_led: bsp::RedLed = pin_alias!(pins.red_led).into();
 
     // Select the 32khz source
     let (mut buses, clocks, tokens) = clock_system_at_reset(
@@ -61,7 +78,6 @@ async fn main(_s: embassy_executor::Spawner) {
 
     let baud = Hertz::Hz(115_200);
 
-
     let (miso, mosi, sclk): (pyportal::Miso, pyportal::Mosi, pyportal::Sck) =
         (pins.miso.into(), pins.mosi.into(), pins.sck.into());
     let pads = spi::Pads::default().data_in(miso).data_out(mosi).sclk(sclk);
@@ -75,6 +91,40 @@ async fn main(_s: embassy_executor::Spawner) {
     let eic = hal::eic::Eic::new(&mut mclk, &(eicclk.into()), peripherals.eic).split();
 
     defmt::println!("trying to init wifi");
+
+    // let mut bus = spi.into_future(SercomIrq);
+    // let mut busy2 = eic.0.with_pin(pyportal::pins::EspBusy::from(pins.esp_busy)).into_future(EicIrq);
+    // busy2.enable_interrupt();
+
+    // let mut firmware_q: &[u8] = &[0xE0, 0x30, 0x01, 0x01, 0xFF, 0xEE, 0xFF, 0xFF];
+    // let mut cs = pyportal::pins::EspCs::from(pins.esp_cs);
+
+    // defmt::unwrap!(cs.set_high());
+    // let mut rst = pins.esp_reset.into_push_pull_output();
+
+    // rst.set_low().expect("reset ESP failed: couldn't set low");
+
+    // Timer::after(Duration::from_millis(200)).await;
+    // rst.set_high().expect("reset ESP failed: couldn't set high");
+    // Timer::after(Duration::from_millis(200)).await;
+
+    warm_up(&mut red_led).await;
+
+    // defmt::unwrap!(cs.set_low());
+    // defmt::unwrap!(bus.write_all(&firmware_q).await);
+    // defmt::println!("written");
+    // defmt::unwrap!(cs.set_high());
+    // busy2.wait(eic::Sense::Low).await;
+    // defmt::println!("low!");
+
+    // let mut buf: [u8; 16] = [0; 16];
+    // defmt::unwrap!(cs.set_low());
+    // let bytes = Read::read(&mut bus, buf.as_mut_slice()).await.unwrap();
+    // defmt::unwrap!(cs.set_high());
+    // for i in 0..bytes {
+    //     defmt::println!("{:#04x}", buf[i]);
+    // }
+
     let mut nina = pyportal::wifi(
         spi,
         SercomIrq,
@@ -85,16 +135,14 @@ async fn main(_s: embassy_executor::Spawner) {
         pins.esp_reset,
         pins.esp_gpio0,
     )
-        .await
-        .expect("couldn't enable pyportal");
+    .await
+    .expect("couldn't init wifi");
 
     defmt::println!("wifi awake");
 
     let mut version = [0_u8; 32];
 
-    nina.get_fw_version(&mut version)
-        .await
-        .expect("failed to retrieve version");
+    defmt::expect!(nina.get_fw_version(&mut version).await);
     defmt::println!(
         "Firmware version is {=str}",
         str::from_utf8(&version).expect("not a valid string")
