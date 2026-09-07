@@ -92,38 +92,7 @@ async fn main(_s: embassy_executor::Spawner) {
 
     defmt::println!("trying to init wifi");
 
-    // let mut bus = spi.into_future(SercomIrq);
-    // let mut busy2 = eic.0.with_pin(pyportal::pins::EspBusy::from(pins.esp_busy)).into_future(EicIrq);
-    // busy2.enable_interrupt();
-
-    // let mut firmware_q: &[u8] = &[0xE0, 0x30, 0x01, 0x01, 0xFF, 0xEE, 0xFF, 0xFF];
-    // let mut cs = pyportal::pins::EspCs::from(pins.esp_cs);
-
-    // defmt::unwrap!(cs.set_high());
-    // let mut rst = pins.esp_reset.into_push_pull_output();
-
-    // rst.set_low().expect("reset ESP failed: couldn't set low");
-
-    // Timer::after(Duration::from_millis(200)).await;
-    // rst.set_high().expect("reset ESP failed: couldn't set high");
-    // Timer::after(Duration::from_millis(200)).await;
-
-    warm_up(&mut red_led).await;
-
-    // defmt::unwrap!(cs.set_low());
-    // defmt::unwrap!(bus.write_all(&firmware_q).await);
-    // defmt::println!("written");
-    // defmt::unwrap!(cs.set_high());
-    // busy2.wait(eic::Sense::Low).await;
-    // defmt::println!("low!");
-
-    // let mut buf: [u8; 16] = [0; 16];
-    // defmt::unwrap!(cs.set_low());
-    // let bytes = Read::read(&mut bus, buf.as_mut_slice()).await.unwrap();
-    // defmt::unwrap!(cs.set_high());
-    // for i in 0..bytes {
-    //     defmt::println!("{:#04x}", buf[i]);
-    // }
+    // warm_up(&mut red_led).await;
 
     let mut nina = pyportal::wifi(
         spi,
@@ -142,9 +111,28 @@ async fn main(_s: embassy_executor::Spawner) {
 
     let mut version = [0_u8; 32];
 
-    defmt::expect!(nina.get_fw_version(&mut version).await);
-    defmt::println!(
-        "Firmware version is {=str}",
-        str::from_utf8(&version).expect("not a valid string")
-    );
+    // defmt::expect!(nina.get_fw_version(&mut version).await);
+    // defmt::println!(
+    //     "Firmware version is {=str}",
+    //     str::from_utf8(&version).expect("not a valid string")
+    // );
+
+    // let mut scratch = [0_u8; 1024];
+    // let networks = defmt::unwrap!(nina.scan_networks(&mut scratch, 10_000).await);
+
+
+    // for item in networks.iter() {
+    //     defmt::println!("{=str}", str::from_utf8(item).unwrap());
+    // }
+
+    // warm_up(&mut red_led).await;
+
+    defmt::println!("sending credentials");
+    defmt::unwrap!(nina.connect_wpa(env!("WIFI_NETWORK").as_bytes(), env!("WIFI_PASSWORD").as_bytes()).await);
+    defmt::println!("waiting for connection");
+    defmt::unwrap!(nina.wait_for_connected(Duration::from_secs(10)).await);
+    defmt::println!("connected!");
+    
+
+
 }

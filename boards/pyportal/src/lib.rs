@@ -95,7 +95,7 @@ where
     >,
 {
     let spi = spi.into_future(spi_interrupt);
-    let busy2 = ch.with_pin(busy.into()).into_future(busy_interrupt);
+    let mut busy2 = ch.with_pin(busy.into()).into_future(busy_interrupt);
     let mut nina = embassy_nina::Nina::new(spi, cs.into(), busy2, reset.into(), gpio.into());
     nina.init().await?;
     Ok(nina)

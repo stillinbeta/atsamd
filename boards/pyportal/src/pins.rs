@@ -237,7 +237,7 @@ hal::bsp_pins!(
         name: esp_busy,
         aliases: {
             Reset: EspBusyReset,
-            FloatingInput: EspBusy,
+            FloatingInterrupt: EspBusy,
         }
     }
     PB17 {
