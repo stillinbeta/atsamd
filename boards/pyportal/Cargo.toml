@@ -48,12 +48,12 @@ smart-leds = "~0.3"
 usbd-serial = "0.2.2"
 embedded-graphics = "0.8.1"
 embassy-time = "0.5"
+embassy-sync = "0.7.2"
 critical-section = "1.2.0"
-
-
 defmt-rtt = "1.2"
 defmt = "1.1"
 panic-probe = "1.0"
+embedded-nal-async = "0.9.0"
 
 [dev-dependencies.embassy-executor]
 version = "0.10"
@@ -68,6 +68,11 @@ version = "0.5"
 
 [dev-dependencies.ws2812-timer-delay]
 version = "~0.3"
+
+[dev-dependencies.reqwless]
+version = "0.14.0"
+default-features = false
+features = ["defmt"]
 
 [features]
 # ask the HAL to enable atsamd51j support

@@ -1,8 +1,8 @@
 #![no_std]
 #![no_main]
 
-#[cfg(not(feature = "use_semihosting"))]
-use panic_halt as _;
+#[cfg(feature = "defmt")]
+use {defmt_rtt as _, panic_probe as _};
 #[cfg(feature = "use_semihosting")]
 use panic_semihosting as _;
 
@@ -13,7 +13,9 @@ use hal::{
 };
 use pyportal as bsp;
 
-use embassy_time::Timer;
+use embassy_time::{Timer, Duration};
+
+
 
 hal::embassy_time!(Driver);
 
@@ -45,6 +47,6 @@ async fn main(_s: embassy_executor::Spawner) {
 
     loop {
         red_led.toggle().unwrap();
-        Timer::after_millis(150).await;
+        Timer::after(Duration::from_millis(200)).await;
     }
 }

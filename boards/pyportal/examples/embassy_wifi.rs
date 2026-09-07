@@ -1,24 +1,16 @@
 #![no_std]
 #![no_main]
 
-// #[cfg(not(feature = "use_semihosting"))]
-// use panic_halt as _;
-// #[cfg(feature = "use_semihosting")]
-// use panic_semihosting as _;
-
-use atsamd_hal::ehal::digital::OutputPin;
-use bsp::{hal, pac, pin_alias};
-use embassy_time::{Duration, Timer};
+use bsp::{hal, pac};
+use embassy_time::Duration;
 use hal::{
     clock::v2::{clock_system_at_reset, osculp32k::OscUlp32k, pclk::Pclk, rtcosc::RtcOsc},
-    ehal::digital::StatefulOutputPin,
     eic,
     sercom::{spi, Sercom2},
     time::Hertz,
-    embedded_io_async::{Write, Read},
-    ehal_async::digital::Wait,
 };
 use pyportal as bsp;
+use reqwless::request::RequestBuilder;
 
 hal::embassy_time!(Driver);
 
@@ -32,18 +24,6 @@ hal::bind_interrupts!(struct EicIrq {
 
 use {defmt_rtt as _, panic_probe as _};
 
-async fn warm_up(red_led: &mut bsp::RedLed) {
-    for _ in 0..4 {
-        Timer::after(Duration::from_millis(1000)).await;
-        red_led.toggle().unwrap();
-    }
-
-    for _ in 0..4 {
-        Timer::after(Duration::from_millis(200)).await;
-        red_led.toggle().unwrap();
-    }
-}
-
 #[embassy_executor::main]
 async fn main(_s: embassy_executor::Spawner) {
     defmt::println!("Hello world!");
@@ -51,7 +31,6 @@ async fn main(_s: embassy_executor::Spawner) {
     let mut peripherals = pac::Peripherals::take().unwrap();
     let _core = pac::CorePeripherals::take().unwrap();
     let pins = bsp::Pins::new(peripherals.port);
-    let mut red_led: bsp::RedLed = pin_alias!(pins.red_led).into();
 
     // Select the 32khz source
     let (mut buses, clocks, tokens) = clock_system_at_reset(
@@ -111,28 +90,57 @@ async fn main(_s: embassy_executor::Spawner) {
 
     let mut version = [0_u8; 32];
 
-    // defmt::expect!(nina.get_fw_version(&mut version).await);
-    // defmt::println!(
-    //     "Firmware version is {=str}",
-    //     str::from_utf8(&version).expect("not a valid string")
-    // );
-
-    // let mut scratch = [0_u8; 1024];
-    // let networks = defmt::unwrap!(nina.scan_networks(&mut scratch, 10_000).await);
-
-
-    // for item in networks.iter() {
-    //     defmt::println!("{=str}", str::from_utf8(item).unwrap());
-    // }
-
-    // warm_up(&mut red_led).await;
+    defmt::expect!(nina.get_fw_version(&mut version).await);
+    defmt::println!(
+        "Firmware version is {=str}",
+        str::from_utf8(&version).expect("not a valid string")
+    );
 
     defmt::println!("sending credentials");
-    defmt::unwrap!(nina.connect_wpa(env!("WIFI_NETWORK").as_bytes(), env!("WIFI_PASSWORD").as_bytes()).await);
+    defmt::unwrap!(
+        nina.connect_wpa(
+            env!("WIFI_NETWORK").as_bytes(),
+            env!("WIFI_PASSWORD").as_bytes()
+        )
+        .await
+    );
     defmt::println!("waiting for connection");
     defmt::unwrap!(nina.wait_for_connected(Duration::from_secs(10)).await);
     defmt::println!("connected!");
-    
 
+    let mutex = embassy_sync::mutex::Mutex::<
+        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
+        _,
+    >::new(nina);
+    let stack = embassy_nina::nal::NinaStack::new(&mutex);
 
+    let client = reqwless::client::HttpClient::new(&stack, &stack);
+
+    let mut buf = [0_u8; 1024];
+    let result = defmt::unwrap!(get_ip(client, &mut buf).await);
+
+    // // loop {
+    let string = str::from_utf8(&result).unwrap();
+    defmt::println!("IP: {}", string);
+    // // }
+}
+
+async fn get_ip<'a, T, D>(
+    mut client: reqwless::client::HttpClient<'a, T, D>,
+    buf: &'a mut [u8],
+) -> Result<&'a mut [u8], reqwless::Error>
+where
+    T: embedded_nal_async::TcpConnect + 'a,
+    D: embedded_nal_async::Dns + 'a,
+{
+    client
+        .request(reqwless::request::Method::GET, "http://jsonip.com")
+        .await?
+        .content_type(reqwless::headers::ContentType::ApplicationJson)
+        .host("jsonip.com")
+        .send(buf)
+        .await?
+        .body()
+        .read_to_end()
+        .await
 }

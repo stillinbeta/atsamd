@@ -8,12 +8,10 @@ pub use hal::pac;
 pub use cortex_m_rt::entry;
 
 use hal::clock::GenericClockController;
-use hal::eic;
 use hal::sercom::{
     i2c,
-    spi::{self, Duplex},
+    spi,
     uart::{self, BaudMode, Oversampling},
-    Sercom2,
 };
 use hal::time::Hertz;
 
@@ -65,6 +63,8 @@ pub fn spi_master(
 }
 
 #[cfg(feature = "wifi")]
+/// Initialize embassy-nina to talk to the ESP32 coprocessor
+/// see examples/embassy_wifi.rs for how to populate each field
 pub async fn wifi<SI, BI>(
     spi: Spi,
     spi_interrupt: SI,
@@ -95,7 +95,7 @@ where
     >,
 {
     let spi = spi.into_future(spi_interrupt);
-    let mut busy2 = ch.with_pin(busy.into()).into_future(busy_interrupt);
+    let busy2 = ch.with_pin(busy.into()).into_future(busy_interrupt);
     let mut nina = embassy_nina::Nina::new(spi, cs.into(), busy2, reset.into(), gpio.into());
     nina.init().await?;
     Ok(nina)

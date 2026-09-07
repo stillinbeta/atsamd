@@ -23,12 +23,16 @@ pub struct EmbassyBackend {
 }
 
 impl EmbassyBackend {
+    // Stolen from RtcModeMonotonic
+    const SYNC_SLACK_TICKS: u32 = 12;
+
     #[allow(clippy::new_without_default)]
     pub const fn new() -> Self {
         Self {
             queue: Mutex::new(RefCell::new(Queue::new())),
         }
     }
+
 
     fn set_alarm(&self, _cs: &CriticalSection, at: u64, rtc: &Rtc) -> bool {
         // Embassy uses u64::MAX as a "no upcoming interrupt" sentinel
@@ -38,14 +42,15 @@ impl EmbassyBackend {
             Err(_) => return false,
         };
 
-        if RtcMode0::count(rtc) >= at {
+        if at.saturating_sub(RtcMode0::count(rtc)) < Self::SYNC_SLACK_TICKS {
             // This is in the past
             return false;
         }
 
         RtcMode0::set_compare(rtc, 0, at);
         // double check that the timestamp is still in the future
-        if RtcMode0::count(rtc) >= at {
+
+        if at.saturating_sub(RtcMode0::count(rtc)) < Self::SYNC_SLACK_TICKS {
             // This is in the past
             return false;
         }
@@ -55,9 +60,10 @@ impl EmbassyBackend {
     pub fn handle_interrupt(&self, rtc: &Rtc, cs: CriticalSection) {
         if RtcMode0::check_interrupt_flag::<Compare0>(rtc) {
             // Due to synchronization delay, the RTC may be slightly behind
-            // Assume the current time is the time the interrupt is set for
+            // Assume the current time is at least the time of the comparator
             let now = RtcMode0::get_compare(rtc, 0) as u64;
             loop {
+                let now = now.max(RtcMode0::count(&rtc) as u64);
                 let next = self.queue.borrow(cs).borrow_mut().next_expiration(now);
                 if self.set_alarm(&cs, next, rtc) {
                     break;
