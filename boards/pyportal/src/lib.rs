@@ -9,8 +9,7 @@ pub use cortex_m_rt::entry;
 
 use hal::clock::GenericClockController;
 use hal::sercom::{
-    i2c,
-    spi,
+    i2c, spi,
     uart::{self, BaudMode, Oversampling},
 };
 use hal::time::Hertz;
@@ -25,6 +24,12 @@ pub use display::*;
 
 #[cfg(feature = "usb")]
 use hal::usb::{usb_device::bus::UsbBusAllocator, UsbBus};
+
+#[cfg(feature = "wifi")]
+use hal::{
+    eic,
+    sercom::{spi::Duplex, Sercom2},
+};
 
 hal::bsp_peripherals!(
     Sercom2 { SpiSercom }
@@ -64,7 +69,7 @@ pub fn spi_master(
 
 #[cfg(feature = "wifi")]
 /// Initialize embassy-nina to talk to the ESP32 coprocessor
-/// see examples/embassy_wifi.rs for how to populate each field
+/// see examples/embassy_wifi.rs
 pub async fn wifi<SI, BI>(
     spi: Spi,
     spi_interrupt: SI,

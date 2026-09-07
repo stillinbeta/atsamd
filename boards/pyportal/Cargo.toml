@@ -39,7 +39,8 @@ optional = true
 version = "0.1"
 optional = true
 features = []
-path = "../../../embassy-nina/"
+git = "https://github.com/stillinbeta/embassy-nina.git"
+rev = "ce3ecde85e0fdd0cfe81f40478f46322de099abf"
 
 [dev-dependencies]
 panic-halt = "0.2"
