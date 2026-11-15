@@ -19,7 +19,8 @@ version = "0.7.5"
 optional = true
 
 [dependencies.atsamd-hal]
-version = "0.21.0"
+# version = "0.21.0"
+path = "../../hal/"
 default-features = false
 
 [dependencies.display-interface-parallel-gpio]
@@ -27,8 +28,10 @@ version="0.7.0"
 optional=true
 
 [dependencies.ili9341]
-version="0.6.0"
-optional=true
+# version="0.6.0"
+git = "https://github.com/stillinbeta/ili9341-rs"
+branch = "defmt"
+optional = true
 
 [dependencies.usb-device]
 version = "0.3.2"
@@ -50,10 +53,15 @@ version = "~0.3"
 
 [features]
 # ask the HAL to enable atsamd51j support
-default = ["rt", "atsamd-hal/samd51j"]
+default = ["rt", "atsamd-hal/samd51j",  "atsamd-hal/undoc-features"]
+
+async = ["atsamd-hal/async"]
+defmt = ["atsamd-hal/defmt", "ili9341/defmt"] # add defmt codegen link
+dma = ["atsamd-hal/dma"]
+display = ["display-interface-parallel-gpio", "ili9341"]
+embassy-time = ["atsamd-hal/embassy-time"]
 rt = ["cortex-m-rt", "atsamd-hal/samd51j-rt"]
 usb = ["atsamd-hal/usb", "usb-device"]
-display = ["display-interface-parallel-gpio", "ili9341"]
 use_semihosting = []
 
 # for cargo flash
